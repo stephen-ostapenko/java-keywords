@@ -1,19 +1,20 @@
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.File
-import java.io.IOException
+import java.io.FileWriter
 import java.io.InputStream
 import java.nio.file.Path
 import kotlin.io.path.*
 
 @Serializable
-data class SourceFileStats(val isTestFile: Boolean, val counter: Map<String, Int>)
+//data class SourceFileStats(val isTestFile: Boolean, val counter: Map<String, Int>)
+data class SourceFileStats(val filePath: String, val isTestFile: Boolean, val counter: Map<String, Int>)
 
-class SourceFileProcessor(private val cacheFolder: Path) {
+class SourceFileProcessor(private val cachePath: Path) {
     private val counter = javaKeywords.associateWith { 0 }.toMutableMap()
     private var commentDepth = 0 // depth of current comment section
                                  // needed to correctly process nested comments
+    private var isTestFile = false
 
     companion object {
         private const val delimiterRegexpString = """ !"#$%&'()*+,-./:;<=>?@`\[\]^{|}~\\"""
@@ -40,14 +41,8 @@ class SourceFileProcessor(private val cacheFolder: Path) {
         }
     }
 
-    fun saveStatsToFile(fileName: String, isTestFile: Boolean = false) {
-        val filePath = cacheFolder / fileName
-        if (isTestFile) {
-            filePath.writeText(Json.encodeToString(SourceFileStats(true, mapOf())))
-            return
-        }
-
-        filePath.writeText(Json.encodeToString(SourceFileStats(false, counter)))
+    fun getStats(filePath: String): SourceFileStats {
+        return SourceFileStats(filePath, isTestFile, counter)
     }
 
     private fun updateCommentDepth(token1: String, token2: String) {
@@ -61,7 +56,6 @@ class SourceFileProcessor(private val cacheFolder: Path) {
 
     private fun processLine(line: String) {
         val tokens = line.split(delimiterRegex).filter { it.isNotEmpty() }
-        println(tokens)
 
         if (tokens.isEmpty()) {
             return

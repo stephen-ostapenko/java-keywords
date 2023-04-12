@@ -1,67 +1,94 @@
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.FileInputStream
+import java.lang.Thread.UncaughtExceptionHandler
 import java.nio.file.Path
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadFactory
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.*
 
-class KeywordCounter(pathToProjectFolder: String, pathToCacheFolder: String, threadNumber: Int) {
-    private val pathToProject = Path(pathToProjectFolder)
-    private val pathToCache = Path(pathToCacheFolder)
-    private val threadPool = Executors.newFixedThreadPool(threadNumber)
+class KeywordCounter(
+    private val pathToProject: Path, private val pathToCache: Path,
+    threadNumber: Int
+) {
+    private class FixedThreadFactory : ThreadFactory {
+        override fun newThread(r: Runnable): Thread {
+            val thread = Thread(r)
+            thread.setUncaughtExceptionHandler { _, e ->
+                e.printStackTrace(System.err)
+                throw e
+            }
 
-    fun run() {
-        threadPool.submit {
-            listDirectory(pathToProject)
+            return thread
         }
     }
 
-    fun finish() {
-        while (!threadPool.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
-            // pass
+    private val threadPool = Executors.newFixedThreadPool(threadNumber, FixedThreadFactory())
+    private val statsQueue = LinkedBlockingQueue<SourceFileStats>()
+
+    private val filesFound = AtomicInteger(0)
+    private val filesProcessed = AtomicInteger(0)
+    private val dirsFound = AtomicInteger(0)
+    private val dirsProcessed = AtomicInteger(0)
+
+    fun run() {
+        dirsFound.incrementAndGet()
+        threadPool.execute {
+            listDirectory(pathToProject)
         }
+
+        while (filesProcessed.get() < filesFound.get() || dirsProcessed.get() < dirsFound.get() || statsQueue.isNotEmpty()) {
+            val fileStat = statsQueue.poll() ?: continue
+            pathToCache.appendText(Json.encodeToString(fileStat))
+            pathToCache.appendText("\n")
+        }
+
+        println("${filesProcessed.get()} / ${filesFound.get()}")
+        println("${dirsProcessed.get()} / ${dirsFound.get()}")
+        threadPool.shutdown()
     }
 
     private fun listDirectory(dirPath: Path) {
-        try {
-            val entries = dirPath.listDirectoryEntries()
-            entries.forEach {
-                val curPath = dirPath / it
+        val entries = dirPath.listDirectoryEntries()
+        entries.forEach {
+            val curPath = dirPath / it
 
-                if (curPath.isRegularFile() && curPath.toString().endsWith(".java")) {
-                    threadPool.submit {
-                        processSourceFile(curPath)
-                    }
-                }
-
-                if (curPath.isDirectory()) {
-                    threadPool.submit {
-                        listDirectory(curPath)
-                    }
+            if (curPath.isRegularFile() && curPath.toString().endsWith(".java")) {
+                filesFound.incrementAndGet()
+                threadPool.execute {
+                    processSourceFile(curPath)
                 }
             }
-        } catch (e: Exception) {
-            println(e)
+
+            if (curPath.isDirectory()) {
+                dirsFound.incrementAndGet()
+                threadPool.execute {
+                    listDirectory(curPath)
+                }
+            }
         }
+
+        //println("Processed dir '$dirPath'")
+        dirsProcessed.incrementAndGet()
     }
 
     private fun processSourceFile(sourceFilePath: Path) {
-        println(sourceFilePath)
-        val cacheFileName = sourceFilePath.toString().replace("/", "+++")
+        /*val cacheFileName = sourceFilePath.toString().replace("/", "+++")
         val cachedFilePath = pathToCache / Path(cacheFileName)
 
         if (cachedFilePath.exists()) {
             return
-        }
+        }*/
 
-        try {
-            val sourceFileProcessor = SourceFileProcessor(pathToCache)
-            sourceFileProcessor.processSourceFile(FileInputStream(sourceFilePath.toFile()))
+        val sourceFileProcessor = SourceFileProcessor(pathToCache)
+        sourceFileProcessor.processSourceFile(FileInputStream(sourceFilePath.toFile()))
+        statsQueue.add(sourceFileProcessor.getStats(sourceFilePath.toString()))
 
-            sourceFileProcessor.saveStatsToFile(cacheFileName)
-
-            println("Processed file '$sourceFilePath'")
-        } catch (e: Exception) {
-            println(e)
-        }
+        //println("Processed file '$sourceFilePath'")
+        filesProcessed.incrementAndGet()
     }
 }

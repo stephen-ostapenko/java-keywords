@@ -6,9 +6,15 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.Path
 import kotlin.io.path.listDirectoryEntries
+import kotlin.system.measureTimeMillis
+import kotlin.time.measureTime
 
 fun main(args: Array<String>) {
-    val keywordCounter = KeywordCounter("/home/stephen/Desktop/intellij-community", "home/stephen/Desktop/cache", 4)
-    keywordCounter.run()
-    keywordCounter.finish()
+    println(
+        measureTimeMillis {
+            //val keywordCounter = KeywordCounter("/home/stephen/Desktop/intellij-community", "home/stephen/Desktop/cache", 1)
+            val keywordCounter = KeywordCounter(Path(".").toAbsolutePath(), Path("/home/stephen/Desktop/cache"), 3)
+            keywordCounter.run()
+        }
+    )
 }
