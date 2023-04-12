@@ -23,13 +23,16 @@ class SourceFileProcessor {
 
     fun processSourceFile(sourceFile: InputStream) {
         val sourceStream = sourceFile.bufferedReader().lines()
-        sourceStream.forEach { line ->
+        for (line in sourceStream) {
             processLine(line)
+            if (isTestFile) {
+                break
+            }
         }
     }
 
     fun getStats(filePath: String): SourceFileStats {
-        return SourceFileStats(filePath, isTestFile, counter)
+        return SourceFileStats(filePath, isTestFile, if (isTestFile) mapOf() else counter)
     }
 
     private fun updateCommentDepth(token1: String, token2: String) {
@@ -57,6 +60,11 @@ class SourceFileProcessor {
             val curToken = tokens[tokenInd]
             if (curToken.isBlank()) {
                 continue
+            }
+
+            if (tokenInd > 0 && tokens[tokenInd - 1] == "@" && curToken in testAnnotationKeywords) {
+                isTestFile = true // file considered to be a test file
+                return
             }
 
             if (curToken == "/" && tokenInd > 0 && tokens[tokenInd - 1] == "/") {

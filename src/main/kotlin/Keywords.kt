@@ -67,3 +67,8 @@ val javaKeywords = listOf(
     JavaKeywordConstants.THROWS, JavaKeywordConstants.TRANSIENT, JavaKeywordConstants.TRY,
     JavaKeywordConstants.VOID, JavaKeywordConstants.VOLATILE, JavaKeywordConstants.WHILE
 )
+
+val testAnnotationKeywords = listOf(
+    "Test", "TestFactory", "TestClassOrder", "TestInstance",
+    "TestMethodOrder", "TestTemplate", "RepeatedTest"
+)
