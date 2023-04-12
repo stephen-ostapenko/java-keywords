@@ -6,33 +6,20 @@ import java.io.InputStream
 import java.nio.file.Path
 import kotlin.io.path.*
 
+// statistics for one source file
 @Serializable
-//data class SourceFileStats(val isTestFile: Boolean, val counter: Map<String, Int>)
 data class SourceFileStats(val filePath: String, val isTestFile: Boolean, val counter: Map<String, Int>)
 
-class SourceFileProcessor(private val cachePath: Path) {
+class SourceFileProcessor {
     private val counter = javaKeywords.associateWith { 0 }.toMutableMap()
     private var commentDepth = 0 // depth of current comment section
                                  // needed to correctly process nested comments
     private var isTestFile = false
 
-    companion object {
+    companion object { // to split line of code into tokens
         private const val delimiterRegexpString = """ !"#$%&'()*+,-./:;<=>?@`\[\]^{|}~\\"""
         private val delimiterRegex = Regex("(?<=[$delimiterRegexpString])|(?=[$delimiterRegexpString])")
     }
-
-    /*init {
-        if (!cacheFolder.exists() || !cacheFolder.isDirectory() || !cacheFolder.isWritable()) {
-            throw IOException("Cache folder doesn't exist or is not writeable")
-        }
-    }*/
-
-    /*fun run(sourceFilePath: String) {
-        val cachedFile = cacheFolder / sourceFilePath.replace("/", "+++")
-        if (cachedFile.exists()) {
-
-        }
-    }*/
 
     fun processSourceFile(sourceFile: InputStream) {
         val sourceStream = sourceFile.bufferedReader().lines()
