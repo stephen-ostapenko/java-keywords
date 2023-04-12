@@ -3,6 +3,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.FileInputStream
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadFactory
@@ -11,7 +12,7 @@ import kotlin.io.path.*
 
 class KeywordCounter(
     private val pathToProject: Path, private val pathToOutput: Path, private val pathToCache: Path,
-    threadNumber: Int
+    threadsCount: Int
 ) {
     private class FixedThreadFactory : ThreadFactory {
         override fun newThread(r: Runnable): Thread {
@@ -25,16 +26,19 @@ class KeywordCounter(
         }
     }
 
-    private val threadPool = Executors.newFixedThreadPool(threadNumber, FixedThreadFactory())
+    private val threadPool = Executors.newFixedThreadPool(threadsCount, FixedThreadFactory())
     private val statsQueue = LinkedBlockingQueue<SourceFileStats>()
 
     private data class SourceFileStatsEntry(val isTestFile: Boolean, val counter: Map<String, Int>)
     private val fileStatsStorage = mutableMapOf<String, SourceFileStatsEntry>()
+    private val overallStats = ConcurrentHashMap(javaKeywords.associateWith { 0 })
 
     private val filesFound = AtomicInteger(0)
     private val filesProcessed = AtomicInteger(0)
     private val dirsFound = AtomicInteger(0)
     private val dirsProcessed = AtomicInteger(0)
+
+    private val prettyJson = Json { prettyPrint = true }
 
     fun run(force: Boolean = false) {
         if (!force && pathToCache.exists()) {
@@ -62,8 +66,11 @@ class KeywordCounter(
             pathToCache.appendText("\n")
         }
 
+        saveStats()
+        pathToCache.writeText("")
         println("${filesProcessed.get()} / ${filesFound.get()}")
         println("${dirsProcessed.get()} / ${dirsFound.get()}")
+
         threadPool.shutdown()
     }
 
@@ -72,6 +79,17 @@ class KeywordCounter(
         cachedFiles.forEach {
             val stats = Json.decodeFromString<SourceFileStats>(it)
             fileStatsStorage[stats.filePath] = SourceFileStatsEntry(stats.isTestFile, stats.counter)
+            updateOverallStats(stats.counter)
+        }
+    }
+
+    private fun saveStats() {
+        pathToOutput.writeText(prettyJson.encodeToString(overallStats.toSortedMap().toMap()))
+    }
+
+    private fun updateOverallStats(counter: Map<String, Int>) {
+        counter.forEach { (keyword, cnt) ->
+            overallStats[keyword] = overallStats.getOrDefault(keyword, 0) + cnt
         }
     }
 
@@ -95,22 +113,21 @@ class KeywordCounter(
             }
         }
 
-        //println("Processed dir '$dirPath'")
         dirsProcessed.incrementAndGet()
     }
 
     private fun processSourceFile(sourceFilePath: Path) {
         if (fileStatsStorage[sourceFilePath.toString()] != null) {
-            println(sourceFilePath)
             filesProcessed.incrementAndGet()
             return
         }
 
         val sourceFileProcessor = SourceFileProcessor()
         sourceFileProcessor.processSourceFile(FileInputStream(sourceFilePath.toFile()))
-        statsQueue.add(sourceFileProcessor.getStats(sourceFilePath.toString()))
+        val stats = sourceFileProcessor.getStats(sourceFilePath.toString())
+        statsQueue.add(stats)
+        updateOverallStats(stats.counter)
 
-        //println("Processed file '$sourceFilePath'")
         filesProcessed.incrementAndGet()
     }
 }
