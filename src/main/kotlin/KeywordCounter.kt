@@ -8,6 +8,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 import kotlin.io.path.*
 
 class KeywordCounter(
@@ -43,12 +44,23 @@ class KeywordCounter(
     fun run(force: Boolean = false) {
         if (!force && pathToCache.exists()) {
             loadCache()
-            println("loaded ${fileStatsStorage.size} files from cache")
+            println("loaded ${fileStatsStorage.size} files from cache\n")
         }
 
         dirsFound.incrementAndGet()
         threadPool.execute {
             listDirectory(pathToProject)
+        }
+
+        thread(isDaemon = true) {
+            while (true) {
+                println("""
+                    processed ${filesProcessed.get()} files from at least ${filesFound.get()}
+                    processed ${dirsProcessed.get()} dirs from at least ${dirsFound.get()}
+                    
+                """.trimIndent())
+                Thread.sleep(1000)
+            }
         }
 
         while (
@@ -68,8 +80,10 @@ class KeywordCounter(
 
         saveStats()
         pathToCache.writeText("")
-        println("${filesProcessed.get()} / ${filesFound.get()}")
-        println("${dirsProcessed.get()} / ${dirsFound.get()}")
+        println("""
+            processed ${filesProcessed.get()} / ${filesFound.get()} files
+            processed ${dirsProcessed.get()} / ${dirsFound.get()} dirs
+        """.trimIndent())
 
         threadPool.shutdown()
     }
