@@ -4,13 +4,13 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.nio.file.Path
 import kotlin.io.path.*
 
 @Serializable
 data class SourceFileStats(val isTestFile: Boolean, val counter: Map<String, Int>)
 
-class SourceFileProcessor(pathToCacheFolder: String) {
-    private val cacheFolder = Path(pathToCacheFolder)
+class SourceFileProcessor(private val cacheFolder: Path) {
     private val counter = javaKeywords.associateWith { 0 }.toMutableMap()
     private var commentDepth = 0 // depth of current comment section
                                  // needed to correctly process nested comments
@@ -20,11 +20,11 @@ class SourceFileProcessor(pathToCacheFolder: String) {
         private val delimiterRegex = Regex("(?<=[$delimiterRegexpString])|(?=[$delimiterRegexpString])")
     }
 
-    init {
+    /*init {
         if (!cacheFolder.exists() || !cacheFolder.isDirectory() || !cacheFolder.isWritable()) {
             throw IOException("Cache folder doesn't exist or is not writeable")
         }
-    }
+    }*/
 
     /*fun run(sourceFilePath: String) {
         val cachedFile = cacheFolder / sourceFilePath.replace("/", "+++")

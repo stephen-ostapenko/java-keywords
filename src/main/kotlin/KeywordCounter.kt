@@ -1,42 +1,67 @@
+import java.io.FileInputStream
 import java.nio.file.Path
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.*
 
-class KeywordCounter(pathToProject: String, pathToCacheFolder: String, threadNumber: Int) {
-    private enum class ProcessTask {
-        LIST_DIR, PROCESS_FILE
-    }
-
-    private val pathToProject = Path(pathToProject)
+class KeywordCounter(pathToProjectFolder: String, pathToCacheFolder: String, threadNumber: Int) {
+    private val pathToProject = Path(pathToProjectFolder)
+    private val pathToCache = Path(pathToCacheFolder)
     private val threadPool = Executors.newFixedThreadPool(threadNumber)
 
-    private fun runTask(type: ProcessTask, path: Path) {
-        when (type) {
-            ProcessTask.LIST_DIR -> listDirectory(path)
-            ProcessTask.PROCESS_FILE -> processSourceFile(path)
+    fun run() {
+        threadPool.submit {
+            listDirectory(pathToProject)
+        }
+    }
+
+    fun finish() {
+        while (!threadPool.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
+            // pass
         }
     }
 
     private fun listDirectory(dirPath: Path) {
-        val entries = dirPath.listDirectoryEntries()
-        entries.forEach {
-            val curPath = dirPath / it
+        try {
+            val entries = dirPath.listDirectoryEntries()
+            entries.forEach {
+                val curPath = dirPath / it
 
-            if (curPath.isRegularFile() && curPath.endsWith(".java")) {
-                threadPool.submit {
-                    runTask(ProcessTask.PROCESS_FILE, curPath)
+                if (curPath.isRegularFile() && curPath.toString().endsWith(".java")) {
+                    threadPool.submit {
+                        processSourceFile(curPath)
+                    }
+                }
+
+                if (curPath.isDirectory()) {
+                    threadPool.submit {
+                        listDirectory(curPath)
+                    }
                 }
             }
-
-            if (curPath.isDirectory()) {
-                threadPool.submit {
-                    runTask(ProcessTask.LIST_DIR, curPath)
-                }
-            }
+        } catch (e: Exception) {
+            println(e)
         }
     }
 
     private fun processSourceFile(sourceFilePath: Path) {
+        println(sourceFilePath)
+        val cacheFileName = sourceFilePath.toString().replace("/", "+++")
+        val cachedFilePath = pathToCache / Path(cacheFileName)
 
+        if (cachedFilePath.exists()) {
+            return
+        }
+
+        try {
+            val sourceFileProcessor = SourceFileProcessor(pathToCache)
+            sourceFileProcessor.processSourceFile(FileInputStream(sourceFilePath.toFile()))
+
+            sourceFileProcessor.saveStatsToFile(cacheFileName)
+
+            println("Processed file '$sourceFilePath'")
+        } catch (e: Exception) {
+            println(e)
+        }
     }
 }
