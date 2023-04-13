@@ -3,15 +3,19 @@ import java.io.InputStream
 
 // statistics for one source file
 @Serializable
-data class SourceFileStats(val filePath: String, val isTestFile: Boolean, val counter: HashMap<String, Int>)
+data class SourceFileStats(val filePath: String, val isTestFile: Boolean, val keywordCounter: HashMap<String, Int>)
 
 class SourceFileProcessor {
-    private val counter = HashMap(javaKeywords.associateWith { 0 })
-    private var commentDepth = 0 // depth of current comment section
-                                 // needed to correctly process nested comments
+    private val keywordCounter = HashMap(javaKeywords.associateWith { 0 })
+
+    // depth of current comment section
+    // needed to correctly process nested comments
+    private var commentDepth = 0
+    // flag that this source file is test file
     private var isTestFile = false
 
-    companion object { // to split line of code into tokens
+    // to split line of code into tokens
+    companion object {
         private const val delimiterRegexpString = """ !"#$%&'()*+,-./:;<=>?@`\[\]^{|}~\\"""
         private val delimiterRegex = Regex("(?<=[$delimiterRegexpString])|(?=[$delimiterRegexpString])")
     }
@@ -27,7 +31,7 @@ class SourceFileProcessor {
     }
 
     fun getStats(filePath: String): SourceFileStats {
-        return SourceFileStats(filePath, isTestFile, if (isTestFile) HashMap() else counter)
+        return SourceFileStats(filePath, isTestFile, if (isTestFile) HashMap() else keywordCounter)
     }
 
     private fun updateCommentDepth(token1: String, token2: String) {
@@ -47,7 +51,7 @@ class SourceFileProcessor {
         }
 
         if (tokens[0] in listOf(JavaKeywordConstants.IMPORT, JavaKeywordConstants.PACKAGE)) {
-            counter[tokens[0]] = counter.getOrDefault(tokens[0], 0) + 1
+            keywordCounter[tokens[0]] = keywordCounter.getOrDefault(tokens[0], 0) + 1
             return
         }
 
@@ -57,6 +61,7 @@ class SourceFileProcessor {
                 continue
             }
 
+            // check for @Test annotations etc
             if (tokenInd > 0 && tokens[tokenInd - 1] == "@" && curToken in testAnnotationKeywords) {
                 isTestFile = true // file considered to be a test file
                 return
@@ -71,7 +76,7 @@ class SourceFileProcessor {
             }
 
             if (commentDepth == 0 && curToken in javaKeywords) { // to count only uncommented keywords
-                counter[tokens[tokenInd]] = counter.getOrDefault(tokens[tokenInd], 0) + 1
+                keywordCounter[tokens[tokenInd]] = keywordCounter.getOrDefault(tokens[tokenInd], 0) + 1
             }
         }
     }

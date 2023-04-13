@@ -30,10 +30,13 @@ class KeywordCounter(
     private val cacheWriter = pathToCache.bufferedWriter()
 
     private val threadPool = Executors.newFixedThreadPool(threadsCount, FixedThreadFactory())
+    // producer-consumer queue for logging file stats to cache
     private val statsQueue = LinkedBlockingQueue<SourceFileStats>()
 
-    private data class SourceFileStatsEntry(val isTestFile: Boolean, val counter: HashMap<String, Int>)
+    private data class SourceFileStatsEntry(val isTestFile: Boolean, val keywordCounter: HashMap<String, Int>)
+    // map to hold stats for each file
     private val fileStatsStorage = HashMap<String, SourceFileStatsEntry>()
+    // map to hold counts for each keyword
     private val overallStats = ConcurrentHashMap(javaKeywords.associateWith { 0 })
 
     private val filesFound = AtomicInteger(0)
@@ -54,6 +57,7 @@ class KeywordCounter(
             listDirectory(pathToProject)
         }
 
+        // thread to print processing status
         thread(isDaemon = true) {
             while (true) {
                 println("""
@@ -65,6 +69,7 @@ class KeywordCounter(
             }
         }
 
+        // consumer thread loop for file stats
         while (
             filesProcessed.get() < filesFound.get() ||
             dirsProcessed.get() < dirsFound.get() ||
@@ -73,13 +78,13 @@ class KeywordCounter(
             val sourceFileStat = statsQueue.poll() ?: continue
 
             fileStatsStorage[sourceFileStat.filePath] = SourceFileStatsEntry(
-                sourceFileStat.isTestFile, sourceFileStat.counter
+                sourceFileStat.isTestFile, sourceFileStat.keywordCounter
             )
 
             cacheWriter.appendLine(Json.encodeToString(sourceFileStat))
         }
 
-        saveStats()
+        saveStatsToOutput()
         cacheWriter.flush()
         pathToCache.writeText("") // clearing cache
         println("""
@@ -94,12 +99,12 @@ class KeywordCounter(
         val cachedFiles = pathToCache.bufferedReader().lines()
         cachedFiles.forEach {
             val stats = Json.decodeFromString<SourceFileStats>(it)
-            fileStatsStorage[stats.filePath] = SourceFileStatsEntry(stats.isTestFile, stats.counter)
-            updateOverallStats(stats.counter)
+            fileStatsStorage[stats.filePath] = SourceFileStatsEntry(stats.isTestFile, stats.keywordCounter)
+            updateOverallStats(stats.keywordCounter)
         }
     }
 
-    private fun saveStats() {
+    private fun saveStatsToOutput() {
         pathToOutput.writeText(
             prettyJson.encodeToString(
                 overallStats.toSortedMap().toMap()
@@ -139,14 +144,14 @@ class KeywordCounter(
     private fun processSourceFile(sourceFilePath: Path) {
         if (fileStatsStorage[sourceFilePath.toString()] != null) {
             filesProcessed.incrementAndGet()
-            return
+            return // file is already in cache
         }
 
         val sourceFileProcessor = SourceFileProcessor()
         sourceFileProcessor.processSourceFile(FileInputStream(sourceFilePath.toFile()))
         val stats = sourceFileProcessor.getStats(sourceFilePath.toString())
         statsQueue.add(stats)
-        updateOverallStats(stats.counter)
+        updateOverallStats(stats.keywordCounter)
 
         filesProcessed.incrementAndGet()
     }
