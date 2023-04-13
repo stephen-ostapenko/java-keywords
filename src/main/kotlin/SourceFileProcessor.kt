@@ -8,10 +8,10 @@ import kotlin.io.path.*
 
 // statistics for one source file
 @Serializable
-data class SourceFileStats(val filePath: String, val isTestFile: Boolean, val counter: Map<String, Int>)
+data class SourceFileStats(val filePath: String, val isTestFile: Boolean, val counter: HashMap<String, Int>)
 
 class SourceFileProcessor {
-    private val counter = javaKeywords.associateWith { 0 }.toMutableMap()
+    private val counter = HashMap(javaKeywords.associateWith { 0 })
     private var commentDepth = 0 // depth of current comment section
                                  // needed to correctly process nested comments
     private var isTestFile = false
@@ -32,7 +32,7 @@ class SourceFileProcessor {
     }
 
     fun getStats(filePath: String): SourceFileStats {
-        return SourceFileStats(filePath, isTestFile, if (isTestFile) mapOf() else counter)
+        return SourceFileStats(filePath, isTestFile, if (isTestFile) HashMap() else counter)
     }
 
     private fun updateCommentDepth(token1: String, token2: String) {

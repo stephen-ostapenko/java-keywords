@@ -30,8 +30,8 @@ class KeywordCounter(
     private val threadPool = Executors.newFixedThreadPool(threadsCount, FixedThreadFactory())
     private val statsQueue = LinkedBlockingQueue<SourceFileStats>()
 
-    private data class SourceFileStatsEntry(val isTestFile: Boolean, val counter: Map<String, Int>)
-    private val fileStatsStorage = mutableMapOf<String, SourceFileStatsEntry>()
+    private data class SourceFileStatsEntry(val isTestFile: Boolean, val counter: HashMap<String, Int>)
+    private val fileStatsStorage = HashMap<String, SourceFileStatsEntry>()
     private val overallStats = ConcurrentHashMap(javaKeywords.associateWith { 0 })
 
     private val filesFound = AtomicInteger(0)
@@ -101,7 +101,7 @@ class KeywordCounter(
         pathToOutput.writeText(prettyJson.encodeToString(overallStats.toSortedMap().toMap()))
     }
 
-    private fun updateOverallStats(counter: Map<String, Int>) {
+    private fun updateOverallStats(counter: HashMap<String, Int>) {
         counter.forEach { (keyword, cnt) ->
             overallStats[keyword] = overallStats.getOrDefault(keyword, 0) + cnt
         }
