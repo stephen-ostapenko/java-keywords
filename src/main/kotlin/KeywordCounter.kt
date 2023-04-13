@@ -77,11 +77,10 @@ class KeywordCounter(
             )
 
             cacheWriter.appendLine(Json.encodeToString(sourceFileStat))
-            //cacheWriter.appendText("\n")
         }
 
         saveStats()
-        cacheWriter.write("")
+        cacheWriter.write("") // clearing cache
         println("""
             processed ${filesProcessed.get()} / ${filesFound.get()} files
             processed ${dirsProcessed.get()} / ${dirsFound.get()} dirs
