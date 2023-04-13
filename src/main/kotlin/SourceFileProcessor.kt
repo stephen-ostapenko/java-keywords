@@ -1,10 +1,5 @@
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import java.io.FileWriter
 import java.io.InputStream
-import java.nio.file.Path
-import kotlin.io.path.*
 
 // statistics for one source file
 @Serializable
