@@ -1,3 +1,4 @@
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -28,8 +29,6 @@ class KeywordCounter(
         }
     }
 
-    private val cacheWriter = pathToCache.bufferedWriter()
-
     private val threadPool = Executors.newFixedThreadPool(threadsCount, FixedThreadFactory())
     // producer-consumer queue for logging file stats to cache
     private val statsQueue = LinkedBlockingQueue<SourceFileStats>()
@@ -58,6 +57,7 @@ class KeywordCounter(
             listDirectory(pathToProject)
         }
 
+        val cacheWriter = pathToCache.bufferedWriter()
         var lastTimeStatusPrinted = LocalDateTime.now()
         // consumer thread loop for file stats
         while (
@@ -78,8 +78,7 @@ class KeywordCounter(
                 println("""
                     processed ${filesProcessed.get()} files from at least ${filesFound.get()}
                     processed ${dirsProcessed.get()} dirs from at least ${dirsFound.get()}
-                    
-                """.trimIndent())
+                """.trimIndent() + "\n")
                 lastTimeStatusPrinted = currentTime
             }
         }
@@ -97,8 +96,13 @@ class KeywordCounter(
 
     private fun loadCache() {
         val cachedFiles = pathToCache.bufferedReader().lines()
-        cachedFiles.forEach {
-            val stats = Json.decodeFromString<SourceFileStats>(it)
+        cachedFiles.forEach loadCachedFileStats@{
+            val stats = try {
+                Json.decodeFromString<SourceFileStats>(it)
+            } catch (e: SerializationException) {
+                return@loadCachedFileStats
+            }
+
             fileStatsStorage[stats.filePath] = SourceFileStatsEntry(stats.isTestFile, stats.keywordCounter)
             updateOverallStats(stats.keywordCounter)
         }
