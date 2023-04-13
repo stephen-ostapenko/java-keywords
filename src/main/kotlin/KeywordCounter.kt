@@ -27,6 +27,8 @@ class KeywordCounter(
         }
     }
 
+    private val cacheWriter = pathToCache.bufferedWriter()
+
     private val threadPool = Executors.newFixedThreadPool(threadsCount, FixedThreadFactory())
     private val statsQueue = LinkedBlockingQueue<SourceFileStats>()
 
@@ -74,12 +76,12 @@ class KeywordCounter(
                 sourceFileStat.isTestFile, sourceFileStat.counter
             )
 
-            pathToCache.appendText(Json.encodeToString(sourceFileStat))
-            pathToCache.appendText("\n")
+            cacheWriter.appendLine(Json.encodeToString(sourceFileStat))
+            //cacheWriter.appendText("\n")
         }
 
         saveStats()
-        pathToCache.writeText("")
+        cacheWriter.write("")
         println("""
             processed ${filesProcessed.get()} / ${filesFound.get()} files
             processed ${dirsProcessed.get()} / ${dirsFound.get()} dirs
