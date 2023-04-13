@@ -100,12 +100,16 @@ class KeywordCounter(
     }
 
     private fun saveStats() {
-        pathToOutput.writeText(prettyJson.encodeToString(overallStats.toSortedMap().toMap()))
+        pathToOutput.writeText(
+            prettyJson.encodeToString(
+                overallStats.toSortedMap().toMap()
+            )
+        )
     }
 
     private fun updateOverallStats(counter: HashMap<String, Int>) {
         counter.forEach { (keyword, cnt) ->
-            overallStats[keyword] = overallStats.getOrDefault(keyword, 0) + cnt
+            overallStats.computeIfPresent(keyword) { _, v -> v + cnt }
         }
     }
 
