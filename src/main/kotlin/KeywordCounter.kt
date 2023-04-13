@@ -80,7 +80,8 @@ class KeywordCounter(
         }
 
         saveStats()
-        cacheWriter.write("") // clearing cache
+        cacheWriter.flush()
+        pathToCache.writeText("") // clearing cache
         println("""
             processed ${filesProcessed.get()} / ${filesFound.get()} files
             processed ${dirsProcessed.get()} / ${dirsFound.get()} dirs
