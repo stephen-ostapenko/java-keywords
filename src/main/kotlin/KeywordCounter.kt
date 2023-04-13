@@ -3,12 +3,13 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.FileInputStream
 import java.nio.file.Path
+import java.time.Duration
+import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.concurrent.thread
 import kotlin.io.path.*
 
 class KeywordCounter(
@@ -57,18 +58,7 @@ class KeywordCounter(
             listDirectory(pathToProject)
         }
 
-        // thread to print processing status
-        thread(isDaemon = true) {
-            while (true) {
-                println("""
-                    processed ${filesProcessed.get()} files from at least ${filesFound.get()}
-                    processed ${dirsProcessed.get()} dirs from at least ${dirsFound.get()}
-                    
-                """.trimIndent())
-                Thread.sleep(1000)
-            }
-        }
-
+        var lastTimeStatusPrinted = LocalDateTime.now()
         // consumer thread loop for file stats
         while (
             filesProcessed.get() < filesFound.get() ||
@@ -82,6 +72,16 @@ class KeywordCounter(
             )
 
             cacheWriter.appendLine(Json.encodeToString(sourceFileStat))
+
+            val currentTime = LocalDateTime.now()
+            if (Duration.between(lastTimeStatusPrinted, currentTime).seconds >= 1) {
+                println("""
+                    processed ${filesProcessed.get()} files from at least ${filesFound.get()}
+                    processed ${dirsProcessed.get()} dirs from at least ${dirsFound.get()}
+                    
+                """.trimIndent())
+                lastTimeStatusPrinted = currentTime
+            }
         }
 
         saveStatsToOutput()
