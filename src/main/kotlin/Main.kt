@@ -35,7 +35,11 @@ fun main(args: Array<String>) {
     val outputPath = getPathWrapper(arguments.output)
     val cachePath = getPathWrapper(arguments.cache)
 
-    val keywordCounter = KeywordCounter(projectPath, outputPath, cachePath, arguments.threads)
-    val time = measureTimeMillis { keywordCounter.run(arguments.force) }
-    println("\ndone in ${time}ms")
+    try {
+        val keywordCounter = KeywordCounter(projectPath, outputPath, cachePath, arguments.threads)
+        val time = measureTimeMillis { keywordCounter.run(arguments.force) }
+        println("\ndone in ${time}ms")
+    } catch (e: Exception) {
+        println("Error: ${e.message}")
+    }
 }
