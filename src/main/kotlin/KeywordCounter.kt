@@ -48,6 +48,7 @@ class KeywordCounter(
 
     fun run(force: Boolean = false) {
         if (!force && pathToCache.exists()) {
+            println("loading cache")
             loadCache()
             println("loaded ${fileStatsStorage.size} files from cache\n")
         }
@@ -94,6 +95,10 @@ class KeywordCounter(
         threadPool.shutdown()
     }
 
+    fun stop() {
+        threadPool.shutdownNow()
+    }
+
     private fun loadCache() {
         val cachedFiles = pathToCache.bufferedReader().lines()
         cachedFiles.forEach loadCachedFileStats@{
@@ -123,6 +128,10 @@ class KeywordCounter(
     }
 
     private fun listDirectory(dirPath: Path) {
+        if (Thread.interrupted()) {
+            return
+        }
+
         val entries = dirPath.listDirectoryEntries()
         entries.forEach {
             val curPath = dirPath / it
@@ -146,6 +155,10 @@ class KeywordCounter(
     }
 
     private fun processSourceFile(sourceFilePath: Path) {
+        if (Thread.interrupted()) {
+            return
+        }
+
         if (fileStatsStorage[sourceFilePath.toString()] != null) {
             filesProcessed.incrementAndGet()
             return // file is already in cache
