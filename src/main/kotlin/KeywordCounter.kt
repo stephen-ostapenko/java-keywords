@@ -1,9 +1,9 @@
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.FileInputStream
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.time.Duration
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
@@ -57,7 +57,7 @@ class KeywordCounter(
             listDirectory(pathToProject)
         }
 
-        val cacheWriter = pathToCache.bufferedWriter()
+        val cacheWriter = pathToCache.bufferedWriter(options = arrayOf(StandardOpenOption.APPEND))
         var lastTimeStatusPrinted = LocalDateTime.now()
         // consumer thread loop for file stats
         while (
@@ -84,7 +84,7 @@ class KeywordCounter(
         }
 
         saveStatsToOutput()
-        cacheWriter.flush()
+        cacheWriter.close()
         pathToCache.writeText("") // clearing cache
         println("""
             processed ${filesProcessed.get()} / ${filesFound.get()} files
@@ -99,7 +99,7 @@ class KeywordCounter(
         cachedFiles.forEach loadCachedFileStats@{
             val stats = try {
                 Json.decodeFromString<SourceFileStats>(it)
-            } catch (e: SerializationException) {
+            } catch (e: Exception) {
                 return@loadCachedFileStats
             }
 
