@@ -19,6 +19,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")
     implementation("com.github.ajalt.clikt:clikt:3.5.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.2")
+    testImplementation("commons-io:commons-io:2.11.0")
 }
 
 tasks.test {
